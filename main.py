@@ -1,29 +1,17 @@
-"""One-star review exporter: deadpan essential, gate-checked (round 4)."""
+"""One-star review desk."""
 import json
 import os
-import pathlib
-import shutil
+from collections import deque
+from pathlib import Path
 
-BOUNDARY = 160
-NAMETAG = "osr4-one-star-r4"
-
-
-def export_entry():
-    source = pathlib.Path(__file__).resolve().parent / "entry.txt"
-    text = source.read_text(encoding="utf-8").strip()
-    if len(text) > BOUNDARY or len(text) == 0:
-        raise AssertionError("gate length violated")
-    out_dir = pathlib.Path(os.environ.get("MAKEFUN_OUTPUT_DIR") or "out")
-    if not out_dir.exists():
-        out_dir.mkdir()
-    shutil.copyfile(source, out_dir / "entry.txt")
-    return text
-
-
-def receipt(length):
-    return {"tag": NAMETAG, "length": length, "state": "exported", "boundary": BOUNDARY, "stars": 1}
-
-
-if __name__ == "__main__":
-    entry = export_entry()
-    print(json.dumps(receipt(len(entry))))
+CEILING = 160
+AISLE = "everyday-essentials"
+deck = deque([Path(__file__).resolve().parent / "entry.txt"])
+deck.rotate(-1)
+text = deck[0].read_bytes().decode("utf-8").strip()
+stamp = "posted" if 1 <= len(text) <= CEILING else "returned"
+if stamp == "posted":
+    drawer = Path(os.environ.get("MAKEFUN_OUTPUT_DIR") or "out")
+    drawer.mkdir(parents=True, exist_ok=True)
+    (drawer / "entry.txt").write_bytes(text.encode("utf-8"))
+print(json.dumps({"review": stamp, "width": len(text)}))
