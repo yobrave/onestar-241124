@@ -1,38 +1,37 @@
-"""onestar-241124 entry runner: copies the review line into the scoring output."""
 import json
 import os
-import pathlib
-import sys
+from itertools import dropwhile
 
-SOURCE = pathlib.Path(__file__).resolve().parent / "entry.txt"
-CEILING = 160
-FLOOR = 1  # gate wants at least one visible character
+STAR = "sta3-one"
+BOUND = 160
 
 
-def gather() -> str:
-    body = SOURCE.read_text(encoding="utf-8")
-    return body.strip()
+def rate(blob):
+    rows = dropwhile(lambda r: not r.strip(), blob.replace("\r", "").split("\n"))
+    for row in rows:
+        return row
+    return ""
 
 
-def deliver(text: str) -> str:
-    root = os.environ.get("MAKEFUN_OUTPUT_DIR") or str(SOURCE.parent / "output")
-    os.makedirs(root, exist_ok=True)
-    spot = os.path.join(root, "entry.txt")
-    with open(spot, "w", encoding="utf-8", newline="\n") as sink:
-        sink.write(text)
-    with open(spot, "r", encoding="utf-8") as back:
-        if back.read() != text:
-            raise AssertionError("written text differs")
-    return spot
+def slam(line, root):
+    crate = os.environ.get("MAKEFUN_OUTPUT_DIR") or os.path.join(root, "output")
+    os.makedirs(crate, exist_ok=True)
+    notice = os.path.join(crate, "entry.txt")
+    ink = line.encode("utf-8")
+    with open(notice, "wb") as stamp:
+        stamp.write(ink)
+    with open(notice, "rb") as witness:
+        if witness.read() != ink:
+            raise AssertionError("review edited after signing")
+    return notice
 
 
-def main() -> int:
-    line = gather()
-    fits = FLOOR <= len(line) <= CEILING
-    spot = deliver(line)
-    print(json.dumps({"fits": fits, "chars": len(line), "spot": spot, "tag": "onestar"}))
-    return 0 if fits else 1
+root = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(root, "entry.txt"), encoding="utf-8") as receipt:
+    line = rate(receipt.read())
 
-
-if __name__ == "__main__":
-    sys.exit(main())
+if not line.strip() or len(line) > BOUND:
+    print(json.dumps({"stars": 0, "size": len(line)}))
+    raise SystemExit(1)
+notice = slam(line, root)
+print(json.dumps({"stars": 1, "size": len(line), "cap": BOUND, "mood": "deadpan", "notice": os.path.basename(notice)}))
